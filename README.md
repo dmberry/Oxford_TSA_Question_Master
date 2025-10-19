@@ -8,7 +8,7 @@ This software is not affiliated with either Oxford University or the Cambridge A
 
 Please be aware this is a beta version of the software. It should be used with care and all answers and calulations checked carefully. Whilst all efforts have been made to made the software function correctly there may be mistakes in its logic please consult the Disclaimer below. 
 
-Visit https://www.ox.ac.uk/admissions/undergraduate/applying-to-oxford/guide/admissions-tests/tsa for more information about the test and how it works. Note that this software only asesses section 1.
+Visit https://www.ox.ac.uk/admissions/undergraduate/applying-to-oxford/guide/admissions-tests/tsa for more information about the test and how it works. Note that this software only marks section 1. All threshold results are estimates and marking boundaries can and do change year to year. Section 2 is usually not marked but used to assess your application to Oxford. Please ask you career advisor at College or School for more background on the Oxford TSA test. 
 
 ## Introduction
 
