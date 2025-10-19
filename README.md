@@ -8,6 +8,8 @@ This software is not affiliated with either Oxford University or the Cambridge A
 
 Please be aware this is a beta version of the software. It should be used with care and all answers and calulations checked carefully. Whilst all efforts have been made to made the software function correctly there may be mistakes in its logic please consult the Disclaimer below. 
 
+Visit https://www.ox.ac.uk/admissions/undergraduate/applying-to-oxford/guide/admissions-tests/tsa for more information about the test and how it works. Note that this software only asesses section 1.
+
 ## Introduction
 
 The Thinking Skills Assessment (TSA) is a pre-interview admissions test for applicants to certain courses at the University of Oxford. It is designed to test problem-solving and critical thinking skills under timed conditions.
