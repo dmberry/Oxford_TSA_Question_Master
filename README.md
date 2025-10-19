@@ -4,6 +4,8 @@
 
 This document provides the official user guide and technical information for the Oxford TSA Question Master, a standalone HTML application designed to help students practise for the University of Oxford's Thinking Skills Assessment (TSA) test. The software provides an interactive, timed environment using official past papers.
 
+This software is not affiliated with either Oxford University or the Cambridge Assessment group. It is provided for individual use only. 
+
 ## Introduction
 
 The Thinking Skills Assessment (TSA) is a pre-interview admissions test for applicants to certain courses at the University of Oxford. It is designed to test problem-solving and critical thinking skills under timed conditions.
