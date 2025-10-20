@@ -1,0 +1,1046 @@
+<!--
+    Oxford TSA Question Master
+    ==========================
+
+    Version History:
+    - v1.0 | 18/10/2025 | Initial interactive test creation with PDF viewer and answer panel. | David M. Berry
+    - v1.1 | 18/10/2025 | Added countdown timers for Section 1 (90 mins) and Section 2 (30 mins). | David M. Berry
+    - v1.2 | 18/10/2025 | Corrected timer logic to persist state between sections and locked Section 1 after submission. | David M. Berry
+    - v1.3 | 18/10/2025 | Enabled review of Section 1 results after Section 2 essay submission. | David M. Berry
+    - v1.4 | 18/10/2025 | Refactored to load questions from an external JSON file selected by the user. | David M. Berry
+    - v1.5 | 18/10/2025 | Improved PDF parsing logic to handle formatting inconsistencies and prevent script errors. | David M. Berry
+    - v1.6 | 18/10/2025 | Added Section 2 question number input, a clickable results overview grid, and reset review to start at Q1. | David M. Berry
+    - v1.7 | 18/10/2025 | Implemented Quit/Start Again buttons, added creator attribution, and fixed printout grid colors. | David M. Berry
+    - v1.8 | 19/10/2025 | Relocated PDF zoom controls to be directly on the viewer panel for better usability. | David M. Berry
+    - v1.9 | 19/10/2025 | Replaced <embed> with <iframe> to attempt a fix for scrolling issues. | David M. Berry
+    - v2.0 | 19/10/2025 | Reverted PDF viewer from <iframe> back to <embed> and fixed zoom/scroll functionality. | David M. Berry
+    - v2.1 | 19/10/2025 | Enhanced printouts with answer details, added Email function, and fixed title screen layout. | David M. Berry
+    - v2.2 | 19/10/2025 | Added extensive keyboard controls, pause functionality, and improved S1 layout. | David M. Berry
+    - v2.3 | 19/10/2025 | Fixed pause/resume logic, added keyboard shortcuts display, enhanced email results, and added score-based feedback. | David M. Berry
+    - v2.4 | 20/10/2025 | Added score threshold summary text to the Section 1 results panel and updated version number. | David M. Berry
+    - v2.5 | 20/10/2025 | Enlarged S2 textbox, simplified word count, added 5-min timer warning, auto-submit on timeout, and forced print page break. | David M. Berry
+
+
+    Author & Copyright:
+    -------------------
+    Created by David M. Berry, University of Sussex, UK.
+    Copyright © 2025 David M. Berry. All Rights Reserved.
+    Released under Creative Commons Share-Alike License.
+
+    Warranty & Liability:
+    ---------------------
+    This software is provided "as is" and is a beta version. It may contain bugs or errors.
+    There is no warranty, express or implied, in the use of this software. The user assumes all risks
+    associated with its use. The author is not liable for any damages resulting from the use of this program.
+    Users should always verify results against the official source materials.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oxford TSA Question Master</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #002147; /* Oxford Blue */
+            --light-gray: #f3f4f6;
+            --medium-gray: #d1d5db;
+            --dark-gray: #374151;
+            --background-color: #f9fafb;
+            --white: #ffffff;
+            --green: #16a34a;
+            --red: #ef4444;
+            --blue-answered: #3b82f6;
+            --grey-marked: #6b7280;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--dark-gray);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .hidden { display: none !important; }
+
+        /* --- File Loader --- */
+        #file-loader {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            height: 100%;
+            padding: 40px 20px;
+            box-sizing: border-box;
+            background-color: #e8e8e8; /* A very light grey, like stone */
+            overflow-y: auto;
+        }
+        .loader-card {
+            background-color: #fdfdfa; /* Creamy/parchment color */
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1), 0 0 0 1px #d1d1d1; /* Softer shadow + border */
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        .loader-card .crest-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 15px auto;
+            color: var(--primary-color);
+            flex-shrink: 0;
+        }
+        .loader-card h1 {
+            font-family: Georgia, 'Times New Roman', serif;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        .loader-card p {
+            color: #444;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+        .file-input-group { margin-bottom: 15px; text-align: left; }
+        .file-input-group label { display: block; font-weight: 600; margin-bottom: 5px; }
+        .file-input-group em { font-size: 0.85rem; color: #555; }
+        .file-input-group input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid var(--medium-gray); border-radius: 4px; margin-top: 5px;}
+        .attribution { font-size: 0.8rem; color: #6c757d; margin-top: 20px; }
+        .disclaimer { font-size: 0.75rem; color: #888; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;}
+        
+        /* --- Main Test Container --- */
+        #test-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: var(--white);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-bottom: 1px solid var(--medium-gray);
+            gap: 15px;
+        }
+        header h1 { font-size: 1.2rem; margin: 0; flex-shrink: 0; }
+        #header-nav-buttons { flex-grow: 1; text-align: left; margin-left: 15px; }
+        #header-right-controls { display: flex; align-items: center; gap: 15px;}
+
+        #timer-display {
+            font-size: 1.5rem;
+            font-weight: 600;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--white);
+            background-color: var(--dark-gray);
+            padding: 5px 15px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            transition: background-color 0.5s;
+        }
+        #timer-display.ending { background-color: var(--red); }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .pdf-viewer-container {
+            flex: 1;
+            border-right: 2px solid var(--medium-gray);
+            overflow: auto;
+            position: relative;
+        }
+        #viewer-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+            background-color: rgba(0,0,0,0.1);
+            padding: 8px;
+            border-radius: 8px;
+        }
+        .zoom-btn { width: 35px; height: 35px; font-size: 1.4rem; font-weight: bold; }
+
+        #pdf-viewer {
+            width: 100%;
+            height: 100%;
+            transform-origin: top left;
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .controls-container {
+            flex-basis: 600px;
+            padding: 20px;
+            background-color: var(--light-gray);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .btn {
+            padding: 10px 15px; border-radius: 6px; border: none; cursor: pointer;
+            font-weight: 600; transition: background-color 0.2s;
+        }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover { background-color: #003366; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .btn-secondary:hover { background-color: #5a6268; }
+        .btn-danger { background-color: var(--red); color: white; }
+        .btn-danger:hover { background-color: #c82333; }
+        .btn:disabled { background-color: #adb5bd; cursor: not-allowed; }
+
+        /* --- Section 1 Controls --- */
+        #s1-answer-area {
+            background-color: #ddebf8;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        #s1-controls-header { margin-bottom: 20px; text-align: center; }
+        #s1-controls-header h2 { margin: 0 0 10px 0; }
+        #s1-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        #mark-review-btn { background-color: #ffc107; color: black; }
+        #mark-review-btn.marked { background-color: var(--grey-marked); color: white; }
+        
+        #answer-options { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        #answer-options label {
+            display: flex; justify-content: center; align-items: center;
+            width: 50px; height: 50px; border-radius: 50%;
+            background: var(--white); border: 2px solid var(--medium-gray);
+            font-size: 1.2rem; font-weight: bold; cursor: pointer;
+        }
+        #answer-options input { display: none; }
+        #answer-options input:checked + label {
+            background-color: var(--primary-color); color: white; border-color: var(--primary-color);
+        }
+        #answer-options.submitted input:checked + label {
+             background-color: var(--red); border-color: var(--red);
+        }
+        #answer-options.submitted .correct-answer {
+             background-color: var(--green) !important; border-color: var(--green) !important; color: white !important;
+        }
+
+        #s1-results {
+            background: var(--white); padding: 15px; border-radius: 8px;
+            text-align: center; margin-top: auto; border: 2px solid var(--primary-color);
+        }
+        #s1-results h3 { margin: 0 0 10px 0; }
+        #score-feedback { font-weight: bold; margin-top: 10px; }
+        .score-thresholds { font-size: 0.8rem; color: #6c757d; margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--medium-gray); }
+        .score-thresholds p { margin: 2px 0; }
+        
+        .progress-grid, #results-grid-overview {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+            margin-top: 15px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 8px;
+        }
+        .progress-circle, .result-circle {
+            width: 30px; height: 30px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 12px; color: white; font-weight: bold;
+            cursor: pointer;
+            background-color: var(--white);
+            border: 1px solid var(--medium-gray);
+            color: var(--dark-gray);
+        }
+        .progress-circle.current { border-color: var(--primary-color); border-width: 3px; }
+        .progress-circle.answered { background-color: var(--blue-answered); color: white; }
+        .progress-circle.marked { background-color: var(--grey-marked); color: white; }
+
+        .result-circle.correct { background-color: var(--green); }
+        .result-circle.incorrect { background-color: var(--red); }
+        
+        .keyboard-shortcuts {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #6c757d;
+            text-align: center;
+            border-top: 1px solid var(--medium-gray);
+            padding-top: 15px;
+        }
+        .keyboard-shortcuts p {
+            margin: 4px 0;
+        }
+
+        /* --- Section 2 Controls --- */
+        #s2-controls { height: 100%; display: flex; flex-direction: column; }
+        .s2-header { text-align: center; }
+        .s2-header input { width: 60px; padding: 5px; text-align: center; margin-left: 10px; }
+        #word-count-display { font-weight: 600; margin-bottom: 10px; color: #555; }
+        #s2-controls textarea {
+            flex-grow: 1; width: 100%; box-sizing: border-box; resize: none;
+            padding: 15px; border: 1px solid var(--medium-gray); border-radius: 8px;
+            margin-bottom: 15px; font-size: 16px; line-height: 1.5;
+            min-height: 450px;
+        }
+
+        #pause-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 1000;
+            display: flex; justify-content: center; align-items: center;
+            color: white; font-size: 3rem; font-weight: bold;
+            cursor: pointer;
+        }
+
+        @media (max-width: 800px) {
+            .main-content { flex-direction: column; }
+            .pdf-viewer-container { border-right: none; border-bottom: 2px solid var(--medium-gray); height: 50vh; }
+            .controls-container { flex-basis: auto; height: 50vh; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="file-loader">
+        <div class="loader-card">
+            <svg class="crest-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"></path>
+            </svg>
+            <h1 id="loader-title"></h1>
+            <p>
+                The Thinking Skills Assessment (TSA) is a pre-interview test for applicants to certain courses at the University of Oxford. It assesses problem-solving and critical thinking skills. This program allows you to practice for the exam using official past papers.
+            </p>
+            <p>
+                Official past papers can be downloaded from: <br> <a href="https://www.ox.ac.uk/admissions/undergraduate/applying-to-oxford/guide/admissions-tests/tsa" target="_blank">www.ox.ac.uk/admissions/undergraduate/applying-to-oxford/guide/admissions-tests/tsa</a>
+            </p>
+            <div class="file-input-group">
+                <label for="s1q-file">1. Section 1 Questions PDF</label>
+                <em>e.g., 'tsa_oxford_2021_sec1.pdf' - The main question paper for the first section.</em>
+                <input type="file" id="s1q-file" accept=".pdf">
+            </div>
+            <div class="file-input-group">
+                <label for="s1a-file">2. Section 1 Answers PDF</label>
+                <em>e.g., 'tsa_oxford_2021_answers.pdf' - The file with correct answers to mark your test.</em>
+                <input type="file" id="s1a-file" accept=".pdf">
+            </div>
+            <div class="file-input-group">
+                <label for="s2q-file">3. Section 2 Questions PDF</label>
+                <em>e.g., 'tsa_oxford_2021_sec2.pdf' - The paper with essay questions for the second section.</em>
+                <input type="file" id="s2q-file" accept=".pdf">
+            </div>
+            <button id="start-test-btn" class="btn btn-primary" disabled>Start Test</button>
+            <p id="attribution" class="attribution"></p>
+            <p class="disclaimer">
+                This program is a beta version and may contain bugs. It should be used with care, and all results should be checked against the official answer sheets. There is no warranty implied in the use of this software; it is used at the user's own risk.
+            </p>
+        </div>
+    </div>
+
+    <div id="test-container" class="hidden">
+        <div id="pause-overlay" class="hidden">PAUSED</div>
+        <header>
+            <h1 id="header-title">Section 1: Critical Thinking & Problem Solving</h1>
+            <div id="header-nav-buttons" class="hidden"></div>
+            <div id="header-right-controls">
+                <div id="timer-display">90:00</div>
+                <button id="submit-s1-btn" class="btn btn-primary" style="background-color: var(--green);">Submit Section 1</button>
+                <button id="submit-s2-btn" class="btn btn-primary hidden" style="background-color: var(--green);">Submit Essay</button>
+                <button id="pause-btn" class="btn btn-secondary">Pause</button>
+                <button id="quit-btn" class="btn btn-danger">Quit</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="pdf-viewer-container">
+                <div id="viewer-controls">
+                    <button id="zoom-out-btn" class="btn btn-secondary zoom-btn">-</button>
+                    <button id="zoom-in-btn" class="btn btn-secondary zoom-btn">+</button>
+                </div>
+                <embed id="pdf-viewer" type="application/pdf">
+            </div>
+            <div class="controls-container">
+                <!-- Section 1 Controls -->
+                <div id="section1-view">
+                    <div id="s1-answer-area">
+                        <div id="s1-controls-header">
+                            <h2 id="question-indicator">Question 1 / 50</h2>
+                            <p>Select your answer below:</p>
+                        </div>
+                        <div id="answer-options">
+                            <div><input type="radio" name="answer" id="optA" value="A"><label for="optA">A</label></div>
+                            <div><input type="radio" name="answer" id="optB" value="B"><label for="optB">B</label></div>
+                            <div><input type="radio" name="answer" id="optC" value="C"><label for="optC">C</label></div>
+                            <div><input type="radio" name="answer" id="optD" value="D"><label for="optD">D</label></div>
+                            <div><input type="radio" name="answer" id="optE" value="E"><label for="optE">E</label></div>
+                        </div>
+                        <div id="s1-nav">
+                            <button id="prev-btn" class="btn btn-secondary">Previous</button>
+                            <button id="mark-review-btn" class="btn">Mark for Review</button>
+                            <button id="next-btn" class="btn btn-primary">Next</button>
+                        </div>
+                    </div>
+                    
+                    <div id="progress-grid" class="progress-grid"></div>
+
+                    <div class="keyboard-shortcuts">
+                        <p><b>Keyboard Shortcuts:</b></p>
+                        <p><b>A-E:</b> Select Answer | <b>Enter:</b> Next Question</p>
+                        <p><b>&larr; / &rarr;:</b> Prev/Next | <b>Shift+&larr;/&rarr;:</b> Jump +/-10</p>
+                        <p><b>Esc:</b> Go to Q1 | <b>P:</b> Pause/Resume Test</p>
+                    </div>
+
+                    <div id="s1-results" class="hidden">
+                         <h3>Section 1 Complete</h3>
+                         <p id="score-display"></p>
+                         <p id="score-feedback"></p>
+                         <div id="results-grid-overview"></div>
+                         <div class="score-thresholds">
+                            <p><em>*Estimated Score Thresholds:</em></p>
+                            <p><strong>&gt; 45:</strong> Excellent | <strong>&gt; 38:</strong> Upper Quintile | <strong>28-32:</strong> Average/Threshold | <strong>&lt; 27:</strong> Below Threshold</p>
+                         </div>
+                         <button id="print-results-btn-s1" class="btn btn-primary" style="margin-top: 15px;">Print Results</button>
+                    </div>
+                </div>
+                <!-- Section 2 Controls -->
+                <div id="section2-view" class="hidden">
+                    <div id="s2-controls">
+                        <div class="s2-header">
+                            <h2>Section 2: Writing Task</h2>
+                            <div>
+                                <label for="essay-q-num">Answering Question #:</label>
+                                <input type="number" id="essay-q-num" min="1" max="4">
+                            </div>
+                            <p id="word-count-display">Words: 0</p>
+                        </div>
+                        <textarea id="essay-area" placeholder="Write your essay here..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+<script>
+    // --- CONFIGURATION ---
+    // Change these values to update the program details.
+    const APP_CONFIG = {
+        TITLE: "Oxford TSA Question Master",
+        VERSION: "2.5",
+        AUTHOR: "David M. Berry, University of Sussex, UK",
+        YEAR: "2025",
+        LICENSE: "Creative Commons Share-Alike"
+    };
+    // --- END CONFIGURATION ---
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js`;
+
+    // --- DOM Elements ---
+    const fileLoader = document.getElementById('file-loader');
+    const testContainer = document.getElementById('test-container');
+    const startTestBtn = document.getElementById('start-test-btn');
+    const s1qInput = document.getElementById('s1q-file');
+    const s1aInput = document.getElementById('s1a-file');
+    const s2qInput = document.getElementById('s2q-file');
+    const pdfViewer = document.getElementById('pdf-viewer');
+    const headerTitle = document.getElementById('header-title');
+    const timerDisplay = document.getElementById('timer-display');
+    const headerNavButtons = document.getElementById('header-nav-buttons');
+    const zoomInBtn = document.getElementById('zoom-in-btn');
+    const zoomOutBtn = document.getElementById('zoom-out-btn');
+    const quitBtn = document.getElementById('quit-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const pauseOverlay = document.getElementById('pause-overlay');
+    const loaderTitle = document.getElementById('loader-title');
+    const attribution = document.getElementById('attribution');
+    
+    // Section 1
+    const s1View = document.getElementById('section1-view');
+    const questionIndicator = document.getElementById('question-indicator');
+    const answerOptions = document.getElementById('answer-options');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const markReviewBtn = document.getElementById('mark-review-btn');
+    const submitS1Btn = document.getElementById('submit-s1-btn');
+    const s1Results = document.getElementById('s1-results');
+    const scoreDisplay = document.getElementById('score-display');
+    const scoreFeedback = document.getElementById('score-feedback');
+    const progressGrid = document.getElementById('progress-grid');
+    const resultsGrid = document.getElementById('results-grid-overview');
+    const printResultsBtnS1 = document.getElementById('print-results-btn-s1');
+
+    // Section 2
+    const s2View = document.getElementById('section2-view');
+    const essayArea = document.getElementById('essay-area');
+    const submitS2Btn = document.getElementById('submit-s2-btn');
+    const wordCountDisplay = document.getElementById('word-count-display');
+    const essayQuestionNumInput = document.getElementById('essay-q-num');
+
+    // --- State ---
+    let s1qFile, s1aFile, s2qFile;
+    let correctAnswers = {};
+    let userAnswers = {};
+    let markedQuestions = {};
+    let currentQuestion = 1;
+    let s1Submitted = false;
+    let s1Score = 0;
+    let timerInterval;
+    let timeLeft;
+    let isPaused = false;
+    let currentZoom = 1.0;
+
+    // --- Initial Setup ---
+    function initializeAppDetails() {
+        const fullTitle = `${APP_CONFIG.TITLE} v${APP_CONFIG.VERSION}`;
+        document.title = fullTitle;
+        loaderTitle.textContent = fullTitle;
+        attribution.textContent = `Created by ${APP_CONFIG.AUTHOR}. © ${APP_CONFIG.YEAR} and released ${APP_CONFIG.LICENSE}.`;
+    }
+    initializeAppDetails();
+
+    // --- File Handling ---
+    [s1qInput, s1aInput, s2qInput].forEach(input => {
+        input.addEventListener('change', () => {
+            if (s1qInput.files.length && s1aInput.files.length && s2qInput.files.length) {
+                startTestBtn.disabled = false;
+            }
+        });
+    });
+
+    startTestBtn.addEventListener('click', async () => {
+        s1qFile = s1qInput.files[0];
+        s1aFile = s1aInput.files[0];
+        s2qFile = s2qInput.files[0];
+
+        try {
+            const answerText = await readPdfText(s1aFile);
+            correctAnswers = parseS1Answers(answerText);
+            if (Object.keys(correctAnswers).length < 50) {
+                throw new Error(`Could not parse all 50 answers. Only found ${Object.keys(correctAnswers).length}. Please check the answer sheet PDF.`);
+            }
+            
+            fileLoader.classList.add('hidden');
+            testContainer.classList.remove('hidden');
+            
+            startSection1();
+
+        } catch (error) {
+            alert(`Error starting test: ${error.message}`);
+        }
+    });
+
+    async function readPdfText(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            fullText += textContent.items.map(item => item.str).join(' ');
+        }
+        return fullText;
+    }
+
+    function parseS1Answers(text) {
+        const answers = {};
+        const answerRegex = /(\d{1,2})\s*[^A-Z0-9]*?\s*([A-E])(?![a-zA-Z])/g;
+        let match;
+        
+        let relevantText = text;
+        const headerIndex = relevantText.indexOf("Answer");
+        if(headerIndex !== -1) {
+            relevantText = relevantText.substring(headerIndex);
+        }
+
+        while ((match = answerRegex.exec(relevantText)) !== null) {
+            const qNum = match[1];
+            const answer = match[2];
+            if (parseInt(qNum) >= 1 && parseInt(qNum) <= 50) {
+                if (!answers[qNum]) {
+                     answers[qNum] = answer;
+                }
+            }
+        }
+        return answers;
+    }
+
+    // --- UI Controls & Keyboard Shortcuts ---
+    zoomInBtn.addEventListener('click', () => {
+        currentZoom += 0.2;
+        pdfViewer.style.transform = `scale(${currentZoom})`;
+    });
+
+    zoomOutBtn.addEventListener('click', () => {
+        if (currentZoom > 1.0) { // Set a minimum zoom level
+            currentZoom -= 0.2;
+            pdfViewer.style.transform = `scale(${currentZoom})`;
+        }
+    });
+
+    quitBtn.addEventListener('click', () => {
+        if (confirm("Are you sure you want to quit? All current progress will be lost.")) {
+            window.location.reload();
+        }
+    });
+
+    pauseBtn.addEventListener('click', togglePause);
+    
+    document.addEventListener('keydown', (e) => {
+        if (isPaused) {
+            togglePause();
+            return;
+        }
+        
+        if (e.key.toUpperCase() === 'P') {
+            e.preventDefault();
+            togglePause();
+            return;
+        }
+
+        if (document.activeElement === essayArea || (s1Submitted && s2View.classList.contains('hidden'))) return;
+
+        if (['A', 'B', 'C', 'D', 'E'].includes(e.key.toUpperCase())) {
+            const opt = e.key.toUpperCase();
+            document.getElementById(`opt${opt}`).click();
+        }
+
+        switch (e.key) {
+            case 'ArrowRight':
+                if (e.shiftKey) currentQuestion = Math.min(50, currentQuestion + 10);
+                else nextBtn.click();
+                updateS1Display();
+                break;
+            case 'ArrowLeft':
+                if (e.shiftKey) currentQuestion = Math.max(1, currentQuestion - 10);
+                else prevBtn.click();
+                updateS1Display();
+                break;
+            case 'Enter':
+                e.preventDefault();
+                nextBtn.click();
+                break;
+            case 'Escape':
+                currentQuestion = 1;
+                updateS1Display();
+                break;
+        }
+    });
+
+
+    // --- Timer & Pause Logic ---
+    function startTimer(onEndCallback) {
+        clearInterval(timerInterval); 
+        timerInterval = setInterval(() => {
+            if (isPaused) {
+                return;
+            }
+            timeLeft--;
+            updateTimerDisplay();
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                onEndCallback();
+            }
+        }, 1000);
+    }
+    
+    function setTimer(durationMinutes) {
+        timeLeft = durationMinutes * 60;
+        updateTimerDisplay();
+        timerDisplay.classList.remove('ending');
+    }
+
+    function updateTimerDisplay() {
+        if (timeLeft < 0) timeLeft = 0;
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        if (timeLeft <= 300 && timeLeft > 0) {
+            timerDisplay.classList.add('ending');
+        }
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        if(isPaused) {
+            pauseOverlay.classList.remove('hidden');
+            pauseBtn.textContent = "Resume";
+        } else {
+            pauseOverlay.classList.add('hidden');
+            pauseBtn.textContent = "Pause";
+        }
+    }
+
+
+    // --- Test Logic ---
+    function startSection1() {
+        pdfViewer.src = URL.createObjectURL(s1qFile);
+        s1View.classList.remove('hidden');
+        s2View.classList.add('hidden');
+        headerTitle.textContent = "Section 1: Critical Thinking & Problem Solving";
+        submitS1Btn.classList.remove('hidden');
+        submitS2Btn.classList.add('hidden');
+        updateS1Display();
+        setTimer(90);
+        startTimer(handleSubmitS1);
+    }
+
+    function updateS1Display() {
+        questionIndicator.textContent = `Question ${currentQuestion} / 50`;
+        document.querySelectorAll('input[name="answer"]').forEach(radio => radio.checked = false);
+        if (userAnswers[currentQuestion]) {
+            document.getElementById(`opt${userAnswers[currentQuestion]}`).checked = true;
+        }
+
+        prevBtn.disabled = currentQuestion === 1;
+        nextBtn.disabled = currentQuestion === 50;
+        
+        if (markedQuestions[currentQuestion]) {
+            markReviewBtn.classList.add('marked');
+            markReviewBtn.textContent = "Unmark";
+        } else {
+            markReviewBtn.classList.remove('marked');
+            markReviewBtn.textContent = "Mark for Review";
+        }
+
+        if (s1Submitted) {
+            answerOptions.classList.add('submitted');
+            const correctAnswer = correctAnswers[currentQuestion];
+            document.querySelectorAll('.correct-answer').forEach(el => el.classList.remove('correct-answer'));
+            const correctLabel = document.querySelector(`label[for="opt${correctAnswer}"]`);
+            if(correctLabel) correctLabel.classList.add('correct-answer');
+        } else {
+             answerOptions.classList.remove('submitted');
+             buildProgressGrid();
+        }
+    }
+    
+    answerOptions.addEventListener('change', e => {
+        if(s1Submitted) {
+            e.preventDefault();
+            return;
+        }
+        userAnswers[currentQuestion] = e.target.value;
+        if (markedQuestions[currentQuestion]) {
+            delete markedQuestions[currentQuestion];
+            markReviewBtn.classList.remove('marked');
+            markReviewBtn.textContent = "Mark for Review";
+        }
+        buildProgressGrid();
+    });
+
+    prevBtn.addEventListener('click', () => {
+        if (currentQuestion > 1) {
+            currentQuestion--;
+            updateS1Display();
+        }
+    });
+
+    nextBtn.addEventListener('click', () => {
+        if (currentQuestion < 50) {
+            currentQuestion++;
+            updateS1Display();
+        }
+    });
+    
+    markReviewBtn.addEventListener('click', () => {
+        if (s1Submitted) return;
+        markedQuestions[currentQuestion] = !markedQuestions[currentQuestion];
+        if (userAnswers[currentQuestion] && markedQuestions[currentQuestion]) {
+            delete userAnswers[currentQuestion];
+        }
+        updateS1Display();
+    });
+
+    submitS1Btn.addEventListener('click', () => {
+        if (confirm("Are you sure you want to submit Section 1? You will not be able to change your answers.")) {
+            handleSubmitS1();
+        }
+    });
+    
+    function getScoreFeedback(score) {
+        if (score > 45) {
+            return { message: "Excellent result!", emoji: "✅✅✅⭐🎓🎓" };
+        } else if (score > 38) {
+            return { message: "This is in the upper quintile and a very good score.", emoji: "✅✅🏆🎓" };
+        } else if (score >= 28) {
+            return { message: "You have reached the minimum threshold or required average score.", emoji: "✅👍" };
+        } else {
+            return { message: "Unfortunately, you did not reach the typical threshold score.", emoji: "❌" };
+        }
+    }
+
+    function handleSubmitS1() {
+        if (s1Submitted) return;
+        s1Submitted = true;
+        clearInterval(timerInterval);
+        
+        s1Score = 0;
+        for (let i = 1; i <= 50; i++) {
+            if (userAnswers[i] === correctAnswers[i]) {
+                s1Score++;
+            }
+        }
+        scoreDisplay.textContent = `Your Score: ${s1Score} / 50 (${(s1Score/50*100).toFixed(1)}%)`;
+        const feedback = getScoreFeedback(s1Score);
+        scoreFeedback.innerHTML = `${feedback.emoji} ${feedback.message}`;
+
+        s1Results.classList.remove('hidden');
+        submitS1Btn.classList.add('hidden');
+        progressGrid.classList.add('hidden');
+        s1View.querySelector('#s1-answer-area').classList.add('hidden');
+        s1View.querySelector('.keyboard-shortcuts').classList.add('hidden');
+        
+        buildResultsGrid();
+        
+        alert("Section 1 submitted. Moving to Section 2.");
+        startSection2();
+    }
+
+    function buildProgressGrid() {
+        progressGrid.innerHTML = '';
+        for (let i = 1; i <= 50; i++) {
+            const circle = document.createElement('div');
+            circle.textContent = i;
+            circle.classList.add('progress-circle');
+
+            if (userAnswers[i]) {
+                circle.classList.add('answered');
+            } else if (markedQuestions[i]) {
+                circle.classList.add('marked');
+            }
+            if (i === currentQuestion) {
+                circle.classList.add('current');
+            }
+
+            circle.dataset.questionNum = i;
+            circle.addEventListener('click', () => {
+                currentQuestion = parseInt(circle.dataset.questionNum);
+                updateS1Display();
+            });
+            progressGrid.appendChild(circle);
+        }
+    }
+
+    function buildResultsGrid() {
+        resultsGrid.innerHTML = '';
+        for (let i = 1; i <= 50; i++) {
+            const circle = document.createElement('div');
+            circle.textContent = i;
+            circle.classList.add('result-circle');
+            const isCorrect = userAnswers[i] === correctAnswers[i];
+            circle.classList.add(isCorrect ? 'correct' : 'incorrect');
+            circle.dataset.questionNum = i;
+            circle.addEventListener('click', () => {
+                currentQuestion = parseInt(circle.dataset.questionNum);
+                updateS1Display();
+            });
+            resultsGrid.appendChild(circle);
+        }
+    }
+    
+    function startSection2() {
+        pdfViewer.src = URL.createObjectURL(s2qFile);
+        s1View.classList.add('hidden');
+        s2View.classList.remove('hidden');
+        headerTitle.textContent = "Section 2: Writing Task";
+        submitS1Btn.classList.add('hidden');
+        submitS2Btn.classList.remove('hidden');
+        setTimer(30);
+        startTimer(handleSubmitS2);
+    }
+
+    essayArea.addEventListener('input', () => {
+        const text = essayArea.value;
+        const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+        wordCountDisplay.textContent = `Words: ${wordCount}`;
+    });
+
+    submitS2Btn.addEventListener('click', () => {
+        if (confirm("Are you sure you want to submit your essay?")) {
+            handleSubmitS2();
+        }
+    });
+
+    function handleSubmitS2() {
+        clearInterval(timerInterval);
+        essayArea.disabled = true;
+        submitS2Btn.classList.add('hidden');
+        essayQuestionNumInput.disabled = true;
+        timerDisplay.classList.remove('ending');
+        timerDisplay.textContent = "Finished";
+        
+        const feedback = getScoreFeedback(s1Score);
+        alert(`Essay submitted. The test is now complete. ${feedback.message}\nYou can now review your results.`);
+        
+        headerTitle.classList.add('hidden');
+        headerNavButtons.classList.remove('hidden');
+        headerNavButtons.innerHTML = `
+            <button id="review-s1-btn" class="btn btn-secondary">Review Section 1</button>
+            <button id="review-s2-btn" class="btn btn-secondary">Review Section 2</button>
+            <button id="print-results-btn-header" class="btn btn-primary">Print Results</button>
+            <button id="email-results-btn" class="btn btn-primary" style="margin-left: 10px;">Email Results</button>
+            <button id="start-again-btn" class="btn btn-danger" style="margin-left: 10px;">Start Again</button>
+        `;
+        
+        document.getElementById('review-s1-btn').onclick = () => {
+            currentQuestion = 1;
+            pdfViewer.src = URL.createObjectURL(s1qFile);
+            s2View.classList.add('hidden');
+            s1View.classList.remove('hidden');
+            updateS1Display();
+        };
+
+        document.getElementById('review-s2-btn').onclick = () => {
+            pdfViewer.src = URL.createObjectURL(s2qFile);
+            s1View.classList.add('hidden');
+            s2View.classList.remove('hidden');
+        };
+
+        document.getElementById('print-results-btn-header').onclick = printResults;
+        printResultsBtnS1.onclick = printResults;
+        
+        document.getElementById('email-results-btn').onclick = emailResults;
+
+        document.getElementById('start-again-btn').onclick = () => {
+             if (confirm("Are you sure you want to start over? Your results will be lost.")) {
+                window.location.reload();
+            }
+        };
+    }
+    
+    function emailResults() {
+        const wordCount = essayArea.value.trim() === '' ? 0 : essayArea.value.trim().split(/\s+/).length;
+        const essayQuestionNumber = essayQuestionNumInput.value || 'Not Specified';
+        const feedback = getScoreFeedback(s1Score);
+        
+        const subject = `${APP_CONFIG.TITLE} v${APP_CONFIG.VERSION} - Test Results`;
+        
+        let body = `TSA Test Results\n\n`;
+        body += `SECTION 1\n`;
+        body += `Score: ${s1Score} / 50 (${(s1Score/50*100).toFixed(1)}%)\n`;
+        body += `Feedback: ${feedback.emoji} ${feedback.message}\n\n`;
+        body += `--- Answer Summary ---\n`;
+        for (let i = 1; i <= 50; i++) {
+            const userChoice = userAnswers[i] || '—';
+            const correctChoice = correctAnswers[i];
+            const isCorrect = userChoice === correctChoice;
+            const mark = isCorrect ? '✓' : '✗';
+            body += `Q${i}: Your answer (${userChoice}), Correct answer: ${correctChoice} ${mark}\n`;
+        }
+        body += `\n`;
+        
+        body += `SECTION 2 ESSAY\n`;
+        body += `Answering Question: #${essayQuestionNumber}\n`;
+        body += `Word Count: ${wordCount}\n`;
+        body += `------------------------------------\n`;
+        body += `${essayArea.value}\n\n`;
+        
+        const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        
+        window.location.href = mailtoLink;
+    }
+
+    function printResults() {
+        const wordCount = essayArea.value.trim() === '' ? 0 : essayArea.value.trim().split(/\s+/).length;
+        const essayQuestionNumber = essayQuestionNumInput.value || 'Not Specified';
+        const feedback = getScoreFeedback(s1Score);
+
+        let resultsGridHtml = '';
+        for(let i = 1; i <= 50; i++) {
+            const isCorrect = userAnswers[i] === correctAnswers[i];
+            const className = isCorrect ? 'correct' : 'incorrect';
+            const userChoice = userAnswers[i] || '—';
+            resultsGridHtml += `<div class="result-item ${className}"><strong>${i}: ${correctAnswers[i]}</strong><br><span>(${userChoice})</span></div>`;
+        }
+        
+        const printWindow = window.open('', '_blank');
+        if(!printWindow) {
+            alert("Please allow popups to print your results.");
+            return;
+        }
+
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>${APP_CONFIG.TITLE} v${APP_CONFIG.VERSION} - Results</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 30px; }
+                        h1, h2, h3 { color: #333; }
+                        .result-section { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; page-break-inside: avoid; }
+                        #section2-print { page-break-before: always; }
+                        .essay-text { white-space: pre-wrap; background: #f9f9f9; padding: 15px; border-radius: 4px; }
+                        .grid-container {
+                            display: grid; 
+                            grid-template-columns: repeat(10, 1fr);
+                            gap: 5px; 
+                            margin-top: 15px; 
+                            padding: 10px;
+                            max-width: 550px;
+                            background: #e9ecef; 
+                            border-radius: 8px;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        .result-item {
+                            padding: 5px;
+                            height: auto;
+                            min-height: 30px;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            font-size: 11px;
+                            font-weight: normal;
+                            border-radius: 4px;
+                            color: white;
+                            line-height: 1.2;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        .result-item strong { font-size: 12px; }
+                        .result-item span { font-size: 10px; opacity: 0.9; }
+                        .result-item.correct { background-color: #16a34a !important; }
+                        .result-item.incorrect { background-color: #ef4444 !important; }
+                        .footer { font-size: 0.8rem; color: #6c757d; text-align: center; margin-top: 40px; }
+                    </style>
+                </head>
+                <body>
+                    <h1>${APP_CONFIG.TITLE} v${APP_CONFIG.VERSION} - Results</h1>
+                    <div class="result-section">
+                        <h2>Section 1 Results</h2>
+                        <p><strong>Score:</strong> ${s1Score} / 50</p>
+                        <p><strong>Percentage:</strong> ${(s1Score/50*100).toFixed(1)}%</p>
+                        <p><strong>Feedback:</strong> ${feedback.emoji} ${feedback.message}</p>
+                        <h3>Your Answer (in brackets) vs. Correct Answer</h3>
+                        <div class="grid-container">${resultsGridHtml}</div>
+                    </div>
+                    <div id="section2-print" class="result-section">
+                        <h2>Section 2 Essay</h2>
+                        <p><strong>Answering Question:</strong> #${essayQuestionNumber}</p>
+                        <p><strong>Word Count:</strong> ${wordCount}</p>
+                        <hr>
+                        <div class="essay-text">${essayArea.value.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+                    </div>
+                    <div class="footer">
+                        <p>Created by ${APP_CONFIG.AUTHOR}. © ${APP_CONFIG.YEAR} and released ${APP_CONFIG.LICENSE}.</p>
+                    </div>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        
+        setTimeout(() => {
+            if (printWindow.print) {
+                printWindow.print();
+            }
+        }, 500);
+    }
+
+</script>
+</body>
+</html>
+
