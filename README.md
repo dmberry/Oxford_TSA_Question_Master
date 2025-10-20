@@ -1,4 +1,4 @@
-# Oxford TSA Question Master v2.4
+# Oxford TSA Question Master v2.5
 
 **By David M. Berry, University of Sussex, UK**
 
@@ -43,6 +43,7 @@ The software includes a comprehensive set of features to simulate the exam exper
 
 ## Version History
 
+- **v2.5** | 19/10/2025 | Enlarged S2 textbox, simplified word count, added 5-min timer warning, auto-submit on timeout, and forced print page break.
 - **v2.4** | 19/10/2025 | Added score threshold summary text to the Section 1 results panel.
 - **v2.3** | 19/10/2025 | Fixed pause/resume logic, added keyboard shortcuts display, enhanced email results, and added score-based feedback.
 - **v2.2** | 19/10/2025 | Added extensive keyboard controls, pause functionality, and improved S1 layout.
